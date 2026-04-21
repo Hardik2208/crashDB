@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const Crash = require("../models/Crash");
+const Crash = require("../models/model");
 
 /**
  * POST /api/crash
