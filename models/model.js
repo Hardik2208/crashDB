@@ -10,7 +10,7 @@ const crashSchema = new mongoose.Schema(
     },
 
     eventTimestamp: {
-      type: Number, // from ESP32 (UTC Unix)
+      type: Number,
       required: true,
       index: true
     },
@@ -21,30 +21,27 @@ const crashSchema = new mongoose.Schema(
     },
 
     location: {
-      lat: {
-        type: Number,
-        required: true,
-        min: -90,
-        max: 90
-      },
-      lng: {
-        type: Number,
-        required: true,
-        min: -180,
-        max: 180
-      }
+      lat: { type: Number, required: true },
+      lng: { type: Number, required: true }
     },
 
     acceleration: {
       type: Number,
-      required: true,
-      min: 0
+      required: true
     },
 
+    // 🔴 EVENT TYPE (what happened)
     status: {
       type: String,
       enum: ["NORMAL", "CRASH"],
-      required: true,
+      required: true
+    },
+
+    // 🔴 WORKFLOW STATE (what you're doing about it)
+    workflowStatus: {
+      type: String,
+      enum: ["PENDING", "IN_PROGRESS", "RESOLVED", "ESCALATED"],
+      default: "PENDING",
       index: true
     }
   },
@@ -54,12 +51,6 @@ const crashSchema = new mongoose.Schema(
   }
 );
 
-/* 🔴 INDEXES (critical for real usage) */
-
-// Fast query: device history
 crashSchema.index({ deviceId: 1, eventTimestamp: -1 });
-
-// Fast query: recent crashes
-crashSchema.index({ status: 1, eventTimestamp: -1 });
 
 module.exports = mongoose.model("Crash", crashSchema);

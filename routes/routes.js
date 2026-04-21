@@ -1,11 +1,11 @@
 const express = require("express");
 const router = express.Router();
 
-const Crash = require("../models/model");
+const Crash = require("../models/Crash");
 
 /**
  * POST /api/crash
- * Insert crash event
+ * Insert crash event (from device)
  */
 router.post("/", async (req, res) => {
   try {
@@ -18,7 +18,7 @@ router.post("/", async (req, res) => {
       status
     } = req.body;
 
-    // 🔴 Strict validation
+    // 🔴 Validation
     if (
       !deviceId ||
       !eventTimestamp ||
@@ -49,7 +49,8 @@ router.post("/", async (req, res) => {
         lng: longitude
       },
       acceleration,
-      status
+      status,
+      workflowStatus: "PENDING" // 🔴 default
     });
 
     await crash.save();
@@ -60,7 +61,7 @@ router.post("/", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error saving crash:", error.message);
+    console.error("❌ POST error:", error.message);
 
     return res.status(500).json({
       success: false,
@@ -73,15 +74,20 @@ router.post("/", async (req, res) => {
 /**
  * GET /api/crash
  * Fetch crashes with filters
+ * Example:
+ * ?deviceId=bike_1
+ * ?workflowStatus=PENDING
+ * ?status=CRASH
  */
 router.get("/", async (req, res) => {
   try {
-    const { deviceId, status, limit = 50 } = req.query;
+    const { deviceId, status, workflowStatus, limit = 50 } = req.query;
 
     let query = {};
 
     if (deviceId) query.deviceId = deviceId;
     if (status) query.status = status;
+    if (workflowStatus) query.workflowStatus = workflowStatus;
 
     const crashes = await Crash.find(query)
       .sort({ eventTimestamp: -1 })
@@ -94,7 +100,7 @@ router.get("/", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error fetching crashes:", error.message);
+    console.error("❌ GET error:", error.message);
 
     return res.status(500).json({
       success: false,
@@ -102,5 +108,58 @@ router.get("/", async (req, res) => {
     });
   }
 });
+
+/**
+ * PUT /api/crash/:id/status
+ * Update workflow status (using PUT)
+ */
+router.put("/:id/status", async (req, res) => {
+  try {
+    const { workflowStatus } = req.body;
+
+    const validStatuses = [
+      "PENDING",
+      "IN_PROGRESS",
+      "RESOLVED",
+      "ESCALATED"
+    ];
+
+    // 🔴 Validation
+    if (!workflowStatus || !validStatuses.includes(workflowStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or missing workflow status"
+      });
+    }
+
+    // 🔴 Update
+    const updated = await Crash.findByIdAndUpdate(
+      req.params.id,
+      { workflowStatus },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Crash not found"
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: updated
+    });
+
+  } catch (error) {
+    console.error("❌ PUT error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 
 module.exports = router;
