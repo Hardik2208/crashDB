@@ -42,8 +42,6 @@ const connectDB = async () => {
   }
 };
 
-connectDB();
-
 
 /* =========================
    🔹 ROUTES
@@ -73,11 +71,23 @@ app.use((err, req, res, next) => {
 
 
 /* =========================
-   🔹 SERVER START
+   🔹 SERVER START (FIXED)
 ========================= */
 
-const PORT = process.env.PORT || 3000;
+const startServer = async () => {
+  try {
+    await connectDB(); // ensure DB connects BEFORE server starts
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+    const PORT = process.env.PORT || 3000;
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+
+  } catch (err) {
+    console.error("❌ Startup Failed:", err.message);
+    process.exit(1);
+  }
+};
+
+startServer();
