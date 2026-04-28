@@ -1,165 +1,51 @@
 const express = require("express");
 const router = express.Router();
-
 const Crash = require("../models/model");
 
 /**
  * POST /api/crash
- * Insert crash event (from device)
+ * Handles incoming IoT data
  */
 router.post("/", async (req, res) => {
   try {
-    const {
-      deviceId,
-      eventTimestamp,
-      latitude,
-      longitude,
-      acceleration,
-      status
-    } = req.body;
+    const { deviceId, eventTimestamp, latitude, longitude, acceleration, status } = req.body;
 
-    // 🔴 Validation
-    if (
-      !deviceId ||
-      !eventTimestamp ||
-      latitude === undefined ||
-      longitude === undefined ||
-      acceleration === undefined ||
-      !status
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields"
-      });
-    }
-
-    if (eventTimestamp > Date.now()) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid timestamp"
+    // Validation
+    if (!deviceId || !eventTimestamp || latitude === undefined || 
+        longitude === undefined || acceleration === undefined || !status) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Missing required fields" 
       });
     }
 
     const crash = new Crash({
       deviceId,
       eventTimestamp,
-      serverTimestamp: Date.now(),
-      location: {
-        lat: latitude,
-        lng: longitude
-      },
+      location: { lat: latitude, lng: longitude },
       acceleration,
-      status,
-      workflowStatus: "PENDING" // 🔴 default
+      status
     });
 
     await crash.save();
-
-    return res.status(201).json({
-      success: true,
-      id: crash._id
-    });
-
+    return res.status(201).json({ success: true, id: crash._id });
   } catch (error) {
-    console.error("❌ POST error:", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    console.error("❌ Save error:", error.message);
+    return res.status(500).json({ success: false, message: error.message });
   }
 });
-
 
 /**
  * GET /api/crash
- * Fetch crashes with filters
- * Example:
- * ?deviceId=bike_1
- * ?workflowStatus=PENDING
- * ?status=CRASH
+ * Logic for Distributed Log-Analyser
  */
 router.get("/", async (req, res) => {
   try {
-    const { deviceId, status, workflowStatus, limit = 50 } = req.query;
-
-    let query = {};
-
-    if (deviceId) query.deviceId = deviceId;
-    if (status) query.status = status;
-    if (workflowStatus) query.workflowStatus = workflowStatus;
-
-    const crashes = await Crash.find(query)
-      .sort({ eventTimestamp: -1 })
-      .limit(Number(limit));
-
-    return res.json({
-      success: true,
-      count: crashes.length,
-      data: crashes
-    });
-
+    const crashes = await Crash.find().sort({ eventTimestamp: -1 }).limit(50);
+    return res.json({ success: true, data: crashes });
   } catch (error) {
-    console.error("❌ GET error:", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 });
 
-/**
- * PUT /api/crash/:id/status
- * Update workflow status (using PUT)
- */
-router.put("/:id/status", async (req, res) => {
-  try {
-    const { workflowStatus } = req.body;
-
-    const validStatuses = [
-      "PENDING",
-      "IN_PROGRESS",
-      "RESOLVED",
-      "ESCALATED"
-    ];
-
-    // 🔴 Validation
-    if (!workflowStatus || !validStatuses.includes(workflowStatus)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid or missing workflow status"
-      });
-    }
-
-    // 🔴 Update
-    const updated = await Crash.findByIdAndUpdate(
-      req.params.id,
-      { workflowStatus },
-      { new: true }
-    );
-
-    if (!updated) {
-      return res.status(404).json({
-        success: false,
-        message: "Crash not found"
-      });
-    }
-
-    return res.json({
-      success: true,
-      data: updated
-    });
-
-  } catch (error) {
-    console.error("❌ PUT error:", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-
-module.exports = router;
+module.exports = router; // Ensure this export is at the end
